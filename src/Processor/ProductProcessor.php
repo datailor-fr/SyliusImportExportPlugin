@@ -84,30 +84,31 @@ final class ProductProcessor implements ResourceProcessorInterface
     private $productVariantRepository;
 
     public function __construct(
-        ProductFactoryInterface $productFactory,
-        TaxonFactoryInterface $taxonFactory,
-        ProductRepositoryInterface $productRepository,
-        TaxonRepositoryInterface $taxonRepository,
-        MetadataValidatorInterface $metadataValidator,
-        PropertyAccessorInterface $propertyAccessor,
-        RepositoryInterface $productAttributeRepository,
+        ProductFactoryInterface         $productFactory,
+        TaxonFactoryInterface           $taxonFactory,
+        ProductRepositoryInterface      $productRepository,
+        TaxonRepositoryInterface        $taxonRepository,
+        MetadataValidatorInterface      $metadataValidator,
+        PropertyAccessorInterface       $propertyAccessor,
+        RepositoryInterface             $productAttributeRepository,
         AttributeCodesProviderInterface $attributeCodesProvider,
-        FactoryInterface $productAttributeValueFactory,
-        ChannelRepositoryInterface $channelRepository,
-        FactoryInterface $productTaxonFactory,
-        FactoryInterface $productImageFactory,
-        FactoryInterface $productVariantFactory,
-        FactoryInterface $channelPricingFactory,
-        ProductTaxonRepository $productTaxonRepository,
+        FactoryInterface                $productAttributeValueFactory,
+        ChannelRepositoryInterface      $channelRepository,
+        FactoryInterface                $productTaxonFactory,
+        FactoryInterface                $productImageFactory,
+        FactoryInterface                $productVariantFactory,
+        FactoryInterface                $channelPricingFactory,
+        ProductTaxonRepository          $productTaxonRepository,
         ProductImageRepositoryInterface $productImageRepository,
-        RepositoryInterface $productVariantRepository,
-        RepositoryInterface $channelPricingRepository,
-        ImageTypesProviderInterface $imageTypesProvider,
-        SlugGeneratorInterface $slugGenerator,
-        ?TransformerPoolInterface $transformerPool,
-        EntityManagerInterface $manager,
-        array $headerKeys
-    ) {
+        RepositoryInterface             $productVariantRepository,
+        RepositoryInterface             $channelPricingRepository,
+        ImageTypesProviderInterface     $imageTypesProvider,
+        SlugGeneratorInterface          $slugGenerator,
+        ?TransformerPoolInterface       $transformerPool,
+        EntityManagerInterface          $manager,
+        array                           $headerKeys
+    )
+    {
         $this->resourceProductFactory = $productFactory;
         $this->resourceTaxonFactory = $taxonFactory;
         $this->productRepository = $productRepository;
@@ -145,17 +146,48 @@ final class ProductProcessor implements ResourceProcessorInterface
         $this->headerKeys = \array_merge($this->headerKeys, $this->imageCode);
         $this->metadataValidator->validateHeaders($this->headerKeys, $data);
 
-        $product = $this->getProduct($data['Code']);
+        if ($this->isProductVariant($data)) {
+            $mainProduct = $this->loadProductFromParentCode($data);
+            $this->setVariant($mainProduct, $data);
+            $this->productRepository->add($mainProduct);
+            return;
+        }
 
-        $this->setDetails($product, $data);
-        $this->setVariant($product, $data);
-        $this->setAttributesData($product, $data);
-        $this->setMainTaxon($product, $data);
-        $this->setTaxons($product, $data);
-        $this->setChannel($product, $data);
-        $this->setImage($product, $data);
+        /** @var ProductInterface $mainProduct */
+        $mainProduct = $this->productRepository->findOneByCode($data['Code']);
+        if (null === $mainProduct) {
+            $mainProduct = $this->resourceProductFactory->createNew();
+        }
 
-        $this->productRepository->add($product);
+        $mainProduct->setCode($data['Code']);
+        $this->setDetails($mainProduct, $data);
+        $this->setMainTaxon($mainProduct, $data);
+        $this->setTaxons($mainProduct, $data);
+        $this->setChannel($mainProduct, $data);
+
+        if (!empty($data['Is_parent'])) {
+            $this->setVariant($mainProduct, $data);
+            $this->setAttributesData($mainProduct, $data);
+            $this->setImage($mainProduct, $data);
+        }
+
+        $this->productRepository->add($mainProduct);
+    }
+
+    private function isProductVariant(array $data): bool
+    {
+        return !empty($data['Parent_code']);
+    }
+
+    private function loadProductFromParentCode(array $data): ProductInterface
+    {
+        $mainProduct = $this->productRepository->findOneByCode($data['Parent_code']);
+        if (null === $mainProduct) {
+            throw new ImporterException(
+                "Parent Product with code {$data['Parent_code']} does not exist yet. Create it first."
+            );
+        }
+        return $mainProduct;
     }
 
     private function getProduct(string $code): ProductInterface
@@ -171,17 +203,28 @@ final class ProductProcessor implements ResourceProcessorInterface
         return $product;
     }
 
-    private function getProductVariant(string $code): ProductVariantInterface
+    private function getOrCreateProductVariant(
+        ProductInterface $product,
+        array            $data
+    ): ProductVariantInterface
     {
-        /** @var ProductVariantInterface|null $productVariant */
-        $productVariant = $this->productVariantRepository->findOneBy(['code' => $code]);
-        if ($productVariant === null) {
-            /** @var ProductVariantInterface $productVariant */
-            $productVariant = $this->productVariantFactory->createNew();
-            $productVariant->setCode($code);
+        $productVariants = $product->getVariants();
+        if ($productVariants->isEmpty()) {
+            return $this->productVariantFactory->createNew();
         }
-
-        return $productVariant;
+        foreach ($productVariants as $productVariantItem) {
+            if ($productVariantItem->getCode() === $data['Code']) {
+                foreach ($productVariantItem->getTranslations() as $translation) {
+                    if ($data['Locale'] === $translation->getLocale()) {
+                        return $productVariantItem;
+                    }
+                }
+                $productVariantItem->setCurrentLocale($data['Locale']);
+                $productVariantItem->setFallbackLocale($data['Locale']);
+                return $productVariantItem;
+            }
+        };
+        return $this->productVariantFactory->createNew();
     }
 
     private function setMainTaxon(ProductInterface $product, array $data): void
@@ -244,7 +287,7 @@ final class ProductProcessor implements ResourceProcessorInterface
         $product->setFallbackLocale($data['Locale']);
 
         $product->setName(substr($data['Name'], 0, 255));
-        $product->setEnabled((bool) $data['Enabled']);
+        $product->setEnabled((bool)$data['Enabled']);
         $product->setDescription($data['Description']);
         $product->setShortDescription(substr($data['Short_description'], 0, 255));
         $product->setMetaDescription(substr($data['Meta_description'], 0, 255));
@@ -254,7 +297,8 @@ final class ProductProcessor implements ResourceProcessorInterface
 
     private function setVariant(ProductInterface $product, array $data): void
     {
-        $productVariant = $this->getProductVariant($product->getCode());
+        $productVariant = $this->getOrCreateProductVariant($product, $data);
+        $productVariant->setCode($data['Code']);
         $productVariant->setCurrentLocale($data['Locale']);
         $productVariant->setName(substr($data['Name'], 0, 255));
 
@@ -273,8 +317,8 @@ final class ProductProcessor implements ResourceProcessorInterface
                 $productVariant->addChannelPricing($channelPricing);
             }
 
-            $channelPricing->setPrice((int) $data['Price']);
-            $channelPricing->setOriginalPrice((int) $data['Price']);
+            $channelPricing->setPrice((int)$data['Price']);
+            $channelPricing->setOriginalPrice((int)$data['Price']);
         }
 
         $product->addVariant($productVariant);
