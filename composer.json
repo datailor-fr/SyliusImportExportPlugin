@@ -1,5 +1,5 @@
 {
-    "name": "friendsofsylius/sylius-import-export-plugin",
+    "name": "datailor-fr/sylius-import-export-plugin",
     "type": "sylius-plugin",
     "description": "import / export plugin for Sylius.",
     "license": "MIT",
