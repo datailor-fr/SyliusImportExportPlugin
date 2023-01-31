@@ -164,10 +164,10 @@ final class ProductProcessor implements ResourceProcessorInterface
         $this->setMainTaxon($mainProduct, $data);
         $this->setTaxons($mainProduct, $data);
         $this->setChannel($mainProduct, $data);
+        $this->setAttributesData($mainProduct, $data);
 
-        if (!empty($data['Is_parent'])) {
+        if (empty($data['Is_parent'])) {
             $this->setVariant($mainProduct, $data);
-            $this->setAttributesData($mainProduct, $data);
             $this->setImage($mainProduct, $data);
         }
 
