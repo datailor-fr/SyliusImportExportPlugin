@@ -301,6 +301,10 @@ final class ProductProcessor implements ResourceProcessorInterface
         $productVariant->setCode($data['Code']);
         $productVariant->setCurrentLocale($data['Locale']);
         $productVariant->setName(substr($data['Name'], 0, 255));
+        $productVariant->setDepth((float)$data['Depth']);
+        $productVariant->setWidth((float)$data['Width']);
+        $productVariant->setHeight((float)$data['Height']);
+        $productVariant->setWeight((float)$data['Weight']);
 
         $channels = \explode('|', $data['Channels']);
         foreach ($channels as $channelCode) {
