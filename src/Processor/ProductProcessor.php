@@ -153,6 +153,13 @@ final class ProductProcessor implements ResourceProcessorInterface
             return;
         }
 
+        if ($data['Can_be_tailored'] === 'true') {
+            $mainProduct = $this->loadProductFromParentCode($data);
+            $this->setCustomCuVariant($mainProduct, $data);
+            $this->productRepository->add($mainProduct);
+            return;
+        }
+
         /** @var ProductInterface $mainProduct */
         $mainProduct = $this->productRepository->findOneByCode($data['Code']);
         if (null === $mainProduct) {
@@ -325,6 +332,13 @@ final class ProductProcessor implements ResourceProcessorInterface
             $channelPricing->setOriginalPrice((int)$data['Price']);
         }
 
+        $product->addVariant($productVariant);
+    }
+
+    private function setCustomVariant(ProductInterface $product, array $data): void
+    {
+        $productVariant = $this->getOrCreateProductVariant($product, $data);
+        $productVariant->setCode($data['Code'].'-custom_cut');
         $product->addVariant($productVariant);
     }
 
