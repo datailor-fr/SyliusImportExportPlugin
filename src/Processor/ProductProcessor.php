@@ -29,6 +29,7 @@ use Sylius\Component\Resource\Repository\RepositoryInterface;
 use Sylius\Component\Taxonomy\Factory\TaxonFactoryInterface;
 use Sylius\Component\Taxonomy\Repository\TaxonRepositoryInterface;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
+use FriendsOfSylius\SyliusImportExportPlugin\Exception\ImporterException;
 
 final class ProductProcessor implements ResourceProcessorInterface
 {
@@ -153,13 +154,6 @@ final class ProductProcessor implements ResourceProcessorInterface
             return;
         }
 
-        if ($data['Can_be_tailored'] === 'true') {
-            $mainProduct = $this->loadProductFromParentCode($data);
-            $this->setCustomCuVariant($mainProduct, $data);
-            $this->productRepository->add($mainProduct);
-            return;
-        }
-
         /** @var ProductInterface $mainProduct */
         $mainProduct = $this->productRepository->findOneByCode($data['Code']);
         if (null === $mainProduct) {
@@ -176,6 +170,11 @@ final class ProductProcessor implements ResourceProcessorInterface
         if (empty($data['Is_parent'])) {
             $this->setVariant($mainProduct, $data);
             $this->setImage($mainProduct, $data);
+        }
+
+        if ($data['Can_be_tailored'] === 'true') {
+            $this->setCustomCutVariant($mainProduct, $data);
+            $this->productRepository->add($mainProduct);
         }
 
         $this->productRepository->add($mainProduct);
@@ -221,6 +220,30 @@ final class ProductProcessor implements ResourceProcessorInterface
         }
         foreach ($productVariants as $productVariantItem) {
             if ($productVariantItem->getCode() === $data['Code']) {
+                foreach ($productVariantItem->getTranslations() as $translation) {
+                    if ($data['Locale'] === $translation->getLocale()) {
+                        return $productVariantItem;
+                    }
+                }
+                $productVariantItem->setCurrentLocale($data['Locale']);
+                $productVariantItem->setFallbackLocale($data['Locale']);
+                return $productVariantItem;
+            }
+        };
+        return $this->productVariantFactory->createNew();
+    }
+
+    private function getOrCreateProductCustomVariant(
+        ProductInterface $product,
+        array            $data
+    ): ProductVariantInterface
+    {
+        $productVariants = $product->getVariants();
+        if ($productVariants->isEmpty()) {
+            return $this->productVariantFactory->createNew();
+        }
+        foreach ($productVariants as $productVariantItem) {
+            if ($productVariantItem->getCode() === $data['Code'] . '-custom_cut') {
                 foreach ($productVariantItem->getTranslations() as $translation) {
                     if ($data['Locale'] === $translation->getLocale()) {
                         return $productVariantItem;
@@ -335,10 +358,10 @@ final class ProductProcessor implements ResourceProcessorInterface
         $product->addVariant($productVariant);
     }
 
-    private function setCustomVariant(ProductInterface $product, array $data): void
+    private function setCustomCutVariant(ProductInterface $product, array $data): void
     {
-        $productVariant = $this->getOrCreateProductVariant($product, $data);
-        $productVariant->setCode($data['Code'].'-custom_cut');
+        $productVariant = $this->getOrCreateProductCustomVariant($product, $data);
+        $productVariant->setCode($data['Code'] . '-custom_cut');
         $product->addVariant($productVariant);
     }
 
