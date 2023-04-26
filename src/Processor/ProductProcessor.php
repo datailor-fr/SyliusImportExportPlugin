@@ -301,7 +301,10 @@ final class ProductProcessor implements ResourceProcessorInterface
                         $data[$attrCode]
                     );
                 }
-
+                if ($attrCode === 'Type') {
+                    $attributeValue->setValue($data[$attrCode] !== 'tube' ? 'plaque' : 'tube');
+                    continue;
+                }
                 $attributeValue->setValue($data[$attrCode]);
 
                 continue;
@@ -336,6 +339,10 @@ final class ProductProcessor implements ResourceProcessorInterface
         $productVariant->setHeight((float)$data['Height']);
         $productVariant->setWeight((float)$data['Weight']);
 
+        if ($data['Is_sample'] === 'true'){
+            $productVariant->setIsSample(true);
+        }
+
         $channels = \explode('|', $data['Channels']);
         foreach ($channels as $channelCode) {
             /** @var ChannelPricingInterface|null $channelPricing */
@@ -351,8 +358,9 @@ final class ProductProcessor implements ResourceProcessorInterface
                 $productVariant->addChannelPricing($channelPricing);
             }
 
-            $channelPricing->setPrice((int)$data['Price']);
-            $channelPricing->setOriginalPrice((int)$data['Price']);
+            $price = floatval(str_replace(',', '.', $data['Price'])) * 100;
+            $channelPricing->setPrice(intval($price));
+            $channelPricing->setOriginalPrice(intval($price));
         }
 
         $product->addVariant($productVariant);
@@ -361,6 +369,8 @@ final class ProductProcessor implements ResourceProcessorInterface
     private function setCustomCutVariant(ProductInterface $product, array $data): void
     {
         $productVariant = $this->getOrCreateProductCustomVariant($product, $data);
+        $productVariant->setPosition(99);
+        $productVariant->setIsCustomCut(true);
         $productVariant->setCode($data['Code'] . '-custom_cut');
         $product->addVariant($productVariant);
     }
