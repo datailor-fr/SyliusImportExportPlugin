@@ -153,13 +153,6 @@ final class ProductProcessor implements ResourceProcessorInterface
             return;
         }
 
-        if ($data['Can_be_tailored'] === 'true') {
-            $mainProduct = $this->loadProductFromParentCode($data);
-            $this->setCustomCuVariant($mainProduct, $data);
-            $this->productRepository->add($mainProduct);
-            return;
-        }
-
         /** @var ProductInterface $mainProduct */
         $mainProduct = $this->productRepository->findOneByCode($data['Code']);
         if (null === $mainProduct) {
@@ -190,7 +183,7 @@ final class ProductProcessor implements ResourceProcessorInterface
     {
         $mainProduct = $this->productRepository->findOneByCode($data['Parent_code']);
         if (null === $mainProduct) {
-            throw new ImporterException(
+            throw new \Exception(
                 "Parent Product with code {$data['Parent_code']} does not exist yet. Create it first."
             );
         }
@@ -308,10 +301,16 @@ final class ProductProcessor implements ResourceProcessorInterface
         $productVariant->setCode($data['Code']);
         $productVariant->setCurrentLocale($data['Locale']);
         $productVariant->setName(substr($data['Name'], 0, 255));
-        $productVariant->setDepth((float)$data['Depth']);
-        $productVariant->setWidth((float)$data['Width']);
-        $productVariant->setHeight((float)$data['Height']);
-        $productVariant->setWeight((float)$data['Weight']);
+
+        if (empty($data['Can_be_tailored'])) {
+            $productVariant->setDepth((float)$data['Depth']);
+            $productVariant->setWidth((float)$data['Width']);
+            $productVariant->setHeight((float)$data['Height']);
+            $productVariant->setWeight((float)$data['Weight']);
+        } else {
+            $productVariant->setIsCustomCut(true);
+        }
+
 
         $channels = \explode('|', $data['Channels']);
         foreach ($channels as $channelCode) {
@@ -328,17 +327,11 @@ final class ProductProcessor implements ResourceProcessorInterface
                 $productVariant->addChannelPricing($channelPricing);
             }
 
-            $channelPricing->setPrice((int)$data['Price']);
-            $channelPricing->setOriginalPrice((int)$data['Price']);
+            $price = floatval(str_replace(',', '.', $data['Price'])) * 100;
+            $channelPricing->setPrice(intval($price));
+            $channelPricing->setOriginalPrice(intval($price));
         }
 
-        $product->addVariant($productVariant);
-    }
-
-    private function setCustomVariant(ProductInterface $product, array $data): void
-    {
-        $productVariant = $this->getOrCreateProductVariant($product, $data);
-        $productVariant->setCode($data['Code'].'-custom_cut');
         $product->addVariant($productVariant);
     }
 
