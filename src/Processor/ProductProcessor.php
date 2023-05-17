@@ -150,6 +150,7 @@ final class ProductProcessor implements ResourceProcessorInterface
             $mainProduct = $this->loadProductFromParentCode($data);
             $this->setVariant($mainProduct, $data);
             $this->productRepository->add($mainProduct);
+            $this->setImage($mainProduct, $data);
             return;
         }
 
@@ -165,12 +166,6 @@ final class ProductProcessor implements ResourceProcessorInterface
         $this->setTaxons($mainProduct, $data);
         $this->setChannel($mainProduct, $data);
         $this->setAttributesData($mainProduct, $data);
-
-        if (empty($data['Is_parent'])) {
-            $this->setVariant($mainProduct, $data);
-            $this->setImage($mainProduct, $data);
-        }
-
         $this->productRepository->add($mainProduct);
     }
 
@@ -271,9 +266,11 @@ final class ProductProcessor implements ResourceProcessorInterface
                         $data[$attrCode]
                     );
                 }
-
                 $attributeValue->setValue($data[$attrCode]);
-
+                if (!$attributeValue->getAttribute()->isTranslatable()) {
+//                    throw new \Exception('NOT TRANSLATABLE');
+                    $attributeValue->setLocaleCode(null);
+                }
                 continue;
             }
 
@@ -311,6 +308,9 @@ final class ProductProcessor implements ResourceProcessorInterface
             $productVariant->setIsCustomCut(true);
         }
 
+        if (!empty($data['Is_sample'])) {
+            $productVariant->setIsSample(true);
+        }
 
         $channels = \explode('|', $data['Channels']);
         foreach ($channels as $channelCode) {
