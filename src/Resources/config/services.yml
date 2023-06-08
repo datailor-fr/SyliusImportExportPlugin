@@ -371,3 +371,15 @@ services:
             - "@sylius.locale_provider"
             - "@sylius.importer.metadata_validator"
             - ["Code", "Parent", "Locale", "Name", "Slug", "Description"]
+    
+    ##### ProductAssociation #####
+    sylius.processor.product_association:
+        class: FriendsOfSylius\SyliusImportExportPlugin\Processor\ProductAssociationProcessor
+        arguments:
+            - "@sylius.factory.product"  
+            - "@sylius.repository.product"
+            - "@sylius.repository.product_association_type"
+            - "@sylius.repository.product_association"
+            - "@property_accessor"
+            - "@doctrine.orm.default_entity_manager"  
+            - "@monolog.logger"
