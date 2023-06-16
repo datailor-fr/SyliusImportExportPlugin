@@ -296,6 +296,11 @@ final class ProductProcessor implements ResourceProcessorInterface
         $product->setMetaDescription(substr($data['Meta_description'], 0, 255));
         $product->setMetaKeywords(substr($data['Meta_keywords'], 0, 255));
         $product->setSlug($product->getSlug() ?: $this->slugGenerator->generate($product->getName()));
+        $product->setManufacturerReference(substr($data['ManufacturerReference'], 0, 255));
+        $product->setMaxLengthDelivery((float)$data['MaxLengthDelivery']);
+        $product->setIsEligibleToPriorityOrder((bool)$data['IsEligibleToPriorityOrder']);
+        $product->setMinPreparationHour((int)$data['MinPreparationHour']);
+        $product->setMaxPreparationHour((int)$data['MaxPreparationHour']);
     }
 
     private function setVariant(ProductInterface $product, array $data): void
@@ -310,6 +315,9 @@ final class ProductProcessor implements ResourceProcessorInterface
             $productVariant->setWidth((float)$data['Width']);
             $productVariant->setHeight((float)$data['Height']);
             $productVariant->setWeight((float)$data['Weight']);
+            $productVariant->setWeightPerLength((float)$data['WeightPerLength']);
+            $productVariant->setWeightPerSurface((float)$data['WeightPerSurface']);
+            $productVariant->setWeightPerVolume((float)$data['WeightPerVolume']);
         } else {
             $productVariant->setIsCustomCut(true);
         }
