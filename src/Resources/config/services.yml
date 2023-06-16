@@ -350,7 +350,7 @@ services:
             - "@sylius.generator.slug"
             - "@sylius.importers_transformer_pool"
             - "@doctrine.orm.entity_manager"
-            - ['Code', 'Locale', 'Name', 'Description', 'Short_description', 'Meta_description', 'Meta_keywords', 'Main_taxon', 'Taxons', 'Channels', 'Enabled', 'Price']
+            - ['Code','Locale','Name','Title','Description','Short_description','Meta_description','Meta_keywords','Price','Enabled','Channels','Main_taxon','Taxons','Parent_code','Is_parent','Can_be_tailored','Is_sample','Type','Transparency','Uv_stabilized','Food_compatible_surface','Vision','Surface','Ref_manufacturer ','Equivalent','Color','Outer_diameter','Details','Fire_rating','Materials','Quality','Brand','Width','Height','Depth','Weight','WeightPerLength','WeightPerSurface','WeightPerVolume','Max_Length_Delivery','Is_Eligible_To_Priority_Order','Min_Preparation_Time','Max_Preparation_Time']
 
     sylius.class_metadata.product_image:
         class: Doctrine\ORM\Mapping\ClassMetadata
