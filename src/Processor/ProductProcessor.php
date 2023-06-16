@@ -139,34 +139,40 @@ final class ProductProcessor implements ResourceProcessorInterface
      */
     public function process(array $data): void
     {
-        $this->attrCode = $this->attributeCodesProvider->getAttributeCodesList();
-        $this->imageCode = $this->imageTypesProvider->getProductImagesCodesWithPrefixList();
+        try {
+            $this->attrCode = $this->attributeCodesProvider->getAttributeCodesList();
+            $this->imageCode = $this->imageTypesProvider->getProductImagesCodesWithPrefixList();
 
-        $this->headerKeys = \array_merge($this->headerKeys, $this->attrCode);
-        $this->headerKeys = \array_merge($this->headerKeys, $this->imageCode);
-        $this->metadataValidator->validateHeaders($this->headerKeys, $data);
+            $this->headerKeys = \array_merge($this->headerKeys, $this->attrCode);
+            $this->headerKeys = \array_merge($this->headerKeys, $this->imageCode);
+            $this->metadataValidator->validateHeaders($this->headerKeys, $data);
 
-        if ($this->isProductVariant($data)) {
-            $mainProduct = $this->loadProductFromParentCode($data);
-            $this->setVariant($mainProduct, $data);
+            if ($this->isProductVariant($data)) {
+                $mainProduct = $this->loadProductFromParentCode($data);
+                $this->setVariant($mainProduct, $data);
+                $this->productRepository->add($mainProduct);
+                $this->setImage($mainProduct, $data);
+                return;
+            }
+
+            /** @var ProductInterface $mainProduct */
+            $mainProduct = $this->productRepository->findOneByCode($data['Code']);
+            if (null === $mainProduct) {
+                $mainProduct = $this->resourceProductFactory->createNew();
+            }
+
+            $mainProduct->setCode($data['Code']);
+            $this->setDetails($mainProduct, $data);
+            $this->setMainTaxon($mainProduct, $data);
+            $this->setTaxons($mainProduct, $data);
+            $this->setChannel($mainProduct, $data);
+            $this->setAttributesData($mainProduct, $data);
             $this->productRepository->add($mainProduct);
-            $this->setImage($mainProduct, $data);
+        } catch (\Exception $e) {
+            echo $data['Code'];
+            echo $e->getMessage();
             return;
         }
-
-        /** @var ProductInterface $mainProduct */
-        $mainProduct = $this->productRepository->findOneByCode($data['Code']);
-        if (null === $mainProduct) {
-            $mainProduct = $this->resourceProductFactory->createNew();
-        }
-
-        $mainProduct->setCode($data['Code']);
-        $this->setDetails($mainProduct, $data);
-        $this->setMainTaxon($mainProduct, $data);
-        $this->setTaxons($mainProduct, $data);
-        $this->setChannel($mainProduct, $data);
-        $this->setAttributesData($mainProduct, $data);
-        $this->productRepository->add($mainProduct);
     }
 
     private function isProductVariant(array $data): bool
